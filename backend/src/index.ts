@@ -1,6 +1,11 @@
-function add (a: number, b: number): number {
-    return a + b;
-}
+import express from "express";
+const app = express()
+import 'dotenv/config';
 
-const result = add(5, 8)
-console.log(result);
+app.get('/', (req, res) => {
+  res.send('Hello from server!')
+})
+
+app.listen(process.env.PORT, () => {
+  console.log(`server is listening on port ${process.env.PORT}`)
+})
