@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
-// The URL of your backend server, from your .env.local file
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
 export default function StreamPage() {
@@ -11,7 +10,6 @@ export default function StreamPage() {
   const videoRefRemote = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // This useEffect handles the camera and microphone access. It is unchanged.
   useEffect(() => {
     const startMedia = async () => {
       try {
@@ -42,27 +40,22 @@ export default function StreamPage() {
     };
   }, []);
 
-  // --- ADDED FOR SOCKET.IO ---
-  // This new useEffect handles the socket connection lifecycle.
   useEffect(() => {
-    // Connect to the socket server
     const socket: Socket = io(SOCKET_URL);
 
     socket.on("connect", () => {
-      console.log("✅ Socket connected:", socket.id);
+      console.log("Socket connected:", socket.id);
     });
 
     socket.on("disconnect", (reason) => {
-      console.log("❌ Socket disconnected:", reason);
+      console.log("Socket disconnected:", reason);
     });
 
-    // Cleanup function to disconnect the socket when the component unmounts
     return () => {
       socket.disconnect();
     };
-  }, []); // The empty array ensures this runs only once.
+  }, []);
 
-  // The original UI is returned without any changes.
   return (
     <div className="min-h-screen flex flex-col items-center p-6">
       <h1 className="text-3xl font-bold mb-12 text-center">Stream page</h1>
