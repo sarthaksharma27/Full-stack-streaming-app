@@ -61,6 +61,12 @@ export default function StreamPage() {
       try {
         device = new mediasoupClient.Device();
         await device.load({ routerRtpCapabilities });
+        
+        socket.emit('createSendTransport', (transportParams: any) => {
+          console.log('Received transport from server:', transportParams);
+        });
+
+        console.log('Mediasoup Device loaded successfully:', device.rtpCapabilities);
       } catch (error) {
         console.error('Failed to load mediasoup device:', error);
       }

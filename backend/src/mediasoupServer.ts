@@ -3,6 +3,7 @@ import * as mediasoup from "mediasoup";
 let worker: mediasoup.types.Worker;
 let router: mediasoup.types.Router;
 
+const transports = new Map<string, mediasoup.types.WebRtcTransport>();
 
 export const startMediasoupWorker = async () => {
     worker = await mediasoup.createWorker();
@@ -35,3 +36,22 @@ export const getRouterRtpCapabilities = () => {
     }
     return router.rtpCapabilities;
 };
+
+export const createWebRtcTransport = async () => {
+    const transport = await router.createWebRtcTransport({
+      listenIps: [{ ip: '0.0.0.0', announcedIp: '127.0.0.1' }],
+      enableUdp: true,
+      enableTcp: true,
+      preferUdp: true,
+    });
+  
+    transports.set(transport.id, transport);
+  
+    return {
+      id: transport.id,
+      iceParameters: transport.iceParameters,
+      iceCandidates: transport.iceCandidates,
+      dtlsParameters: transport.dtlsParameters,
+    };
+  };
+  
