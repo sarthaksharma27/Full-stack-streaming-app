@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import * as mediasoupClient from 'mediasoup-client';
+import { types } from 'mediasoup-client';
+
+
+let device: types.Device;
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
@@ -50,6 +55,16 @@ export default function StreamPage() {
     socket.on("user-joined", (data) => {
       console.log(data.message);
     });
+
+    socket.on("routerRtpCapabilities", async (routerRtpCapabilities: types.RtpCapabilities) => {
+      console.log('Recived Router RTP Capabilities from server:', routerRtpCapabilities);
+      try {
+        device = new mediasoupClient.Device();
+        await device.load({ routerRtpCapabilities });
+      } catch (error) {
+        console.error('Failed to load mediasoup device:', error);
+      }
+    })
 
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
