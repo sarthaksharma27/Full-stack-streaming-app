@@ -4,6 +4,7 @@ let worker: mediasoup.types.Worker;
 let router: mediasoup.types.Router;
 
 const transports = new Map<string, mediasoup.types.WebRtcTransport>();
+const producers = new Map<string, mediasoup.types.Producer>();
 
 export const startMediasoupWorker = async () => {
     worker = await mediasoup.createWorker();
@@ -61,4 +62,16 @@ export const createWebRtcTransport = async () => {
       throw new Error(`Transport with id "${transportId}" not found`);
     }
     await transport.connect({ dtlsParameters });
+  };
+
+  export const createProducer = async (transportId: string, rtpParameters: mediasoup.types.RtpParameters, kind: mediasoup.types.MediaKind) => {
+    const transport = transports.get(transportId);
+    if (!transport) throw new Error("Transport not found");
+  
+    const producer = await transport.produce({ kind, rtpParameters });
+    producers.set(producer.id, producer);
+    
+    console.log("Server-side producer created with ID:", producer.id);
+    
+    return producer.id;
   };

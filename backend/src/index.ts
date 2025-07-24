@@ -1,7 +1,7 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
-import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, connectWebRtcTransport } from "./mediasoupServer.js";
+import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, connectWebRtcTransport, createProducer } from "./mediasoupServer.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -53,6 +53,11 @@ async function main() {
         console.log("Received DTLS parameters from client. Connecting transport");
         await connectWebRtcTransport(transportId, dtlsParameters);
         callback();
+      });
+
+      socket.on('produce', async ({ transportId, kind, rtpParameters }, callback) => {
+        const producerId = await createProducer(transportId, rtpParameters, kind);
+        callback(producerId);
       });
 
       socket.on('disconnect', () => {
