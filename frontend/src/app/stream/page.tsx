@@ -47,6 +47,10 @@ export default function StreamPage() {
       console.log("Socket connected:", socket.id);
     });
 
+    socket.on("user-joined", (data) => {
+      console.log(data.message);
+    });
+
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
     });

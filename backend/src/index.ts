@@ -18,11 +18,20 @@ app.get('/', (req, res) => {
 })
 
 io.on('connection', (socket) => {
-    console.log(`user connected ${socket.id}`);
+    socket.join('stream-room');
+
+    console.log(`user connected ${socket.id}`)
+
+    socket.to("stream-room").emit("user-joined", {
+      message: `${socket.id} Joined the room`,
+      socketId: socket.id
+    });
+
     socket.on('disconnect', () => {
       console.log(`user disconnected ${socket.id}`)
     });
 });
+
 
 server.listen(process.env.PORT, () => {
     console.log(`Server is listening on port ${process.env.PORT}`);
