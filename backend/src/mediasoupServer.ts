@@ -54,4 +54,11 @@ export const createWebRtcTransport = async () => {
       dtlsParameters: transport.dtlsParameters,
     };
   };
-  
+
+  export const connectWebRtcTransport = async (transportId: string, dtlsParameters: mediasoup.types.DtlsParameters) => {
+    const transport = transports.get(transportId);
+    if (!transport) {
+      throw new Error(`Transport with id "${transportId}" not found`);
+    }
+    await transport.connect({ dtlsParameters });
+  };

@@ -7,6 +7,7 @@ import { types } from 'mediasoup-client';
 
 
 let device: types.Device;
+let sendTransport: types.Transport;
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
@@ -61,16 +62,32 @@ export default function StreamPage() {
       try {
         device = new mediasoupClient.Device();
         await device.load({ routerRtpCapabilities });
-        
-        socket.emit('createSendTransport', (transportParams: any) => {
-          console.log('Received transport from server:', transportParams);
-        });
-
         console.log('Mediasoup Device loaded successfully:', device.rtpCapabilities);
+        
+        socket.emit('createSendTransport', (transportParams: types.TransportOptions) => {
+          console.log('Received transport from server:', transportParams);
+          sendTransport = device.createSendTransport(transportParams);
+      
+          console.log('Send transport created on client:', sendTransport);
+
+          sendTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+            console.log("Connect event fired. Sending DTLS parameters to server...");
+          
+            socket.emit('connectTransport', {
+              transportId: sendTransport.id,
+              dtlsParameters
+            }, () => {
+              console.log("Server confirmed the connection.");
+              callback();
+            });
+          });
+        });
       } catch (error) {
         console.error('Failed to load mediasoup device:', error);
       }
     })
+
+    
 
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);

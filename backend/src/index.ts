@@ -1,7 +1,7 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
-import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport } from "./mediasoupServer.js";
+import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, connectWebRtcTransport } from "./mediasoupServer.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -47,6 +47,12 @@ async function main() {
           console.error('Failed to create transport:', error);
           callback({ error: error });
         }
+      });
+
+      socket.on('connectTransport', async ({ transportId, dtlsParameters }, callback) => {
+        console.log("Received DTLS parameters from client. Connecting transport");
+        await connectWebRtcTransport(transportId, dtlsParameters);
+        callback();
       });
 
       socket.on('disconnect', () => {
