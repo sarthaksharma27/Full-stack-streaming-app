@@ -19,6 +19,7 @@
   "dependencies": {
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
+    "mediasoup": "^3.16.7",
     "socket.io": "^4.8.1"
   }
 }
