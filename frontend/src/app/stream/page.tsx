@@ -33,6 +33,8 @@ export default function StreamPage() {
         device = new mediasoupClient.Device();
         await device.load({ routerRtpCapabilities });
         console.log('Mediasoup Device loaded successfully:', device.rtpCapabilities);
+
+        socket.emit('get-producers');
         
         socket.emit('createSendTransport', (transportParams: types.TransportOptions) => {
           console.log('Received transport from server:', transportParams);
@@ -92,10 +94,10 @@ export default function StreamPage() {
       consumeProducer(producerId);
     })
 
-    socket.on("existing-producers", ({ producerIds }: { producerIds: string[] }) => { 
+    socket.on("existing-producers", async ({ producerIds }: { producerIds: string[] }) => { 
       console.log("Hey there are some user who already producing", producerIds);
       for( const producerId of producerIds) {
-        consumeProducer(producerId);
+          await consumeProducer(producerId);
       }
     });
 

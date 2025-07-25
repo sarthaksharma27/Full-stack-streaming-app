@@ -43,8 +43,11 @@ async function main() {
         socket.emit('error', 'Router not ready');
       }
 
-      const producerIds = Array.from(producers.keys());
-      socket.emit('existing-producers', { producerIds });
+      socket.on('get-producers', (callback) => {
+        const producerIds = Array.from(producers.keys());
+        console.log(`Sending existing producer ids to ${socket.id}:`, producerIds);
+        socket.emit('existing-producers', { producerIds });
+    });
 
       socket.on('createSendTransport', async (callback) => {
         console.log('Browser requested to create a send transport');
