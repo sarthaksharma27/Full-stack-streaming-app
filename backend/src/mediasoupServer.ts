@@ -4,7 +4,8 @@ let worker: mediasoup.types.Worker;
 let router: mediasoup.types.Router;
 
 const transports = new Map<string, mediasoup.types.WebRtcTransport>();
-const producers = new Map<string, mediasoup.types.Producer>();
+export const producers = new Map<string, mediasoup.types.Producer>();
+
 
 export const startMediasoupWorker = async () => {
     worker = await mediasoup.createWorker();
@@ -64,14 +65,22 @@ export const createWebRtcTransport = async () => {
     await transport.connect({ dtlsParameters });
   };
 
-  export const createProducer = async (transportId: string, rtpParameters: mediasoup.types.RtpParameters, kind: mediasoup.types.MediaKind) => {
+  export const createProducer = async (transportId: string, rtpParameters: mediasoup.types.RtpParameters,
+     kind: mediasoup.types.MediaKind, socketId: string) => {
     const transport = transports.get(transportId);
     if (!transport) throw new Error("Transport not found");
   
-    const producer = await transport.produce({ kind, rtpParameters });
+    const producer = await transport.produce({ kind, rtpParameters, appData: { socketId }, });
     producers.set(producer.id, producer);
     
-    console.log("Server-side producer created with ID:", producer.id);
+    console.log(`Producer ${producer.id} created by socket ${socketId}`);
     
     return producer.id;
   };
+
+  export const rmProducer = async (myProducerId: string) => {
+    if (producers.has(myProducerId)) {
+      producers.delete(myProducerId);
+    }
+    console.log("removing producer", myProducerId);
+  }

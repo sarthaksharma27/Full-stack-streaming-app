@@ -1,7 +1,8 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
-import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, connectWebRtcTransport, createProducer } from "./mediasoupServer.js";
+import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, connectWebRtcTransport, 
+  createProducer, producers  } from "./mediasoupServer.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -56,25 +57,37 @@ async function main() {
       });
 
       socket.on('produce', async ({ transportId, kind, rtpParameters }, callback) => {
-        const producerId = await createProducer(transportId, rtpParameters, kind);
+        const producerId = await createProducer(transportId, rtpParameters, kind, socket.id);
         callback(producerId);
       });
 
+      async function rmProducer() {
+        for (const [id, producer] of producers) {
+          if (producer.appData?.socketId === socket.id) {
+            await producer.close();
+            producers.delete(id);
+            console.log(`Cleaned up producer ${id} for disconnecting socket ${socket.id}`);
+          }
+        }
+      }
+
       socket.on('disconnect', () => {
         console.log(`user disconnected ${socket.id}`)
+        rmProducer();
       });
   });
 
-
-  server.listen(process.env.PORT, () => {
-      console.log(`Server is listening on port ${process.env.PORT}`);
-  });
-
 }
-
 
 main().catch((err) => {
   console.error("Failed to start main server:", err);
   process.exit(1);
 });
+
+
+server.listen(process.env.PORT, () => {
+  console.log(`Server is listening on port ${process.env.PORT}`);
+});
+
+
 
