@@ -99,6 +99,31 @@ export default function StreamPage() {
       }
     });
 
+  socket.on("producer-closed", ({ producerId }: { producerId: string }) => {
+    console.log(`Producer ${producerId} has closed. Cleaning up.`);
+
+    let consumerToClose;
+    for (const consumer of consumers.values()) {
+        if (consumer.producerId === producerId) {
+            consumerToClose = consumer;
+            break;
+        }
+    }
+
+    if (!consumerToClose) {
+        return;
+    }
+
+    consumerToClose.close();
+    
+    consumers.delete(consumerToClose.id);
+    
+    const videoElement = document.getElementById(`vid-${producerId}`);
+    if (videoElement) {
+        videoElement.parentNode?.removeChild(videoElement);
+    }
+  });
+
     async function consumeProducer(producerId: string) {
       await createRecvTransport();
   

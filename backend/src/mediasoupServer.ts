@@ -114,10 +114,11 @@ export const createWebRtcTransport = async ({ socketId }: { socketId: string }) 
 
       consumers.set(consumer.id, consumer);
 
-      // When the transport closes, this consumer closes automatically.
-      // We can also listen for producer closure to close it explicitly.
-      // (This part can be added later for more robust cleanup)
-
+      consumer.on('producerclose', () => {
+        console.log(`Consumer ${consumer.id} closed on Server because its producer closed`);
+        consumers.delete(consumer.id);
+     }); // (i can add later for more robust cleanup if need not required now i am assuming)
+      
       return {
         id: consumer.id,
         producerId: consumer.producerId,
