@@ -3,7 +3,8 @@ import http from "http";
 import { Server } from "socket.io";
 import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, connectWebRtcTransport, 
   createProducer, producers,  
-  closeProducer} from "./mediasoupServer.js";
+  closeProducer,
+  transports} from "./mediasoupServer.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -46,7 +47,7 @@ async function main() {
       socket.on('createSendTransport', async (callback) => {
         console.log('Browser requested to create a send transport');
         try {
-          const transportParams = await createWebRtcTransport();
+          const transportParams = await createWebRtcTransport({socketId: socket.id});
           callback(transportParams);
         } catch (error) {
           console.error('Failed to create transport:', error);
@@ -65,6 +66,16 @@ async function main() {
         callback({ id: producerId });
       });
 
+      async function rmTrasport() {
+        for (const transport of transports.values()) {
+          if (transport.appData.socketId === socket.id) {
+              transport.close();
+              transports.delete(transport.id);
+              console.log(`Cleaned up transport ${transport.id} for disconnecting socket ${socket.id}`);
+          }
+        }
+      }
+
       async function rmProducer() {
         for (const producer of producers.values()) {
           if (producer.appData.socketId === socket.id) {
@@ -72,10 +83,11 @@ async function main() {
           }
         }
       }
-    
+
       socket.on('disconnect', () => {
         console.log(`user disconnected ${socket.id}`)
          rmProducer()
+         rmTrasport()
       });
   });
 

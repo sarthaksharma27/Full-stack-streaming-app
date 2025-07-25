@@ -4,7 +4,7 @@ import { Server as SocketIOServer, Socket } from "socket.io";
 let worker: mediasoup.types.Worker;
 let router: mediasoup.types.Router;
 
-const transports = new Map<string, mediasoup.types.WebRtcTransport>();
+export const transports = new Map<string, mediasoup.types.WebRtcTransport>();
 export const producers = new Map<string, mediasoup.types.Producer>();
 
 
@@ -40,12 +40,14 @@ export const getRouterRtpCapabilities = () => {
     return router.rtpCapabilities;
 };
 
-export const createWebRtcTransport = async () => {
+export const createWebRtcTransport = async ({ socketId }: { socketId: string }) => {
     const transport = await router.createWebRtcTransport({
       listenIps: [{ ip: '0.0.0.0', announcedIp: '127.0.0.1' }],
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
+
+      appData: { socketId },
     });
   
     transports.set(transport.id, transport);
