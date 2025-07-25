@@ -8,6 +8,7 @@ import { types } from 'mediasoup-client';
 
 let device: types.Device;
 let sendTransport: types.Transport;
+let recvTransport;
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
@@ -84,7 +85,16 @@ export default function StreamPage() {
       console.log('Client-side producer created:', producer);
     }
 
-    
+    socket.on("new-producer",(producerId: string) => {
+      console.log("Hey a new producer join", producerId);
+      
+    })
+
+    socket.on("existing-producers", ({ producerIds }: { producerIds: string[] }) => { 
+      console.log("Hey there are some user who already producing", producerIds);
+    });
+
+
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
     });
@@ -94,29 +104,7 @@ export default function StreamPage() {
     };
   }, []);
 
-  // return (
-  //   <div className="min-h-screen flex flex-col items-center p-6">
-  //     <h1 className="text-3xl font-bold mb-12 text-center">Stream page</h1>
-
-  //     {error ? (
-  //       <p className="text-red-600">Error: {error}</p>
-  //     ) : (
-  //       <div className="flex justify-center gap-6">
-  //         <video
-  //           ref={videoRefLocal}
-  //           autoPlay
-  //           muted
-  //           playsInline
-  //           className="max-w-[500px] w-[500px] aspect-[16/9] border border-gray-300 object-cover rounded-lg shadow-md"
-  //         />
-  //         <video
-  //           ref={videoRefRemote}
-  //           autoPlay
-  //           playsInline
-  //           className="max-w-[500px] w-[500px] aspect-[16/9] border border-gray-300 object-cover rounded-lg shadow-md"
-  //         />
-  //       </div>
-  //     )}
-  //   </div>
-  // );
+  return (
+    <div>This is stream page. Thankyou for visit</div>
+  );
 }
