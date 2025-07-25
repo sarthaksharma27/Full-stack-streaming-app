@@ -9,7 +9,15 @@ export const producers = new Map<string, mediasoup.types.Producer>();
 
 
 export const startMediasoupWorker = async () => {
-    worker = await mediasoup.createWorker();
+    
+    const workerSettings: mediasoup.types.WorkerSettings = {
+      rtcMinPort: 20000,
+      rtcMaxPort: 20100,
+      logLevel: 'warn',
+      logTags: [],
+    };
+
+    worker = await mediasoup.createWorker(workerSettings);
 
     worker.on('died', (error) => {
         console.error('mediasoup worker has died', error);
