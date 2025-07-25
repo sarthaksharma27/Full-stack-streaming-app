@@ -4,7 +4,9 @@ import { Server } from "socket.io";
 import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, connectWebRtcTransport, 
   createProducer, producers,  
   closeProducer,
-  transports} from "./mediasoupServer.js";
+  transports,
+  createConsumer,
+  resumeConsumer} from "./mediasoupServer.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -64,6 +66,38 @@ async function main() {
       socket.on('produce', async ({ transportId, kind, rtpParameters }, callback) => {
         const producerId = await createProducer(socket, transportId, rtpParameters, kind);
         callback({ id: producerId });
+      });
+
+      socket.on('create-recv-transport', async (callback) => {
+        console.log(`Request from ${socket.id} to create a recv transport`);
+        try {
+            const transportParams = await createWebRtcTransport({ socketId: socket.id });
+            callback(transportParams);
+        } catch (error) {
+            console.error('Failed to create recv transport:', error);
+            callback({ error: (error as Error).message });
+        }
+      });
+
+      socket.on('connect-recv-transport', async ({ transportId, dtlsParameters }, callback) => {
+        console.log(`Request from ${socket.id} to connect a recv transport`);
+        await connectWebRtcTransport(transportId, dtlsParameters);
+        callback();
+      });
+
+      socket.on('consume', async ({ transportId, producerId, rtpCapabilities }, callback) => {
+        try {
+            const params = await createConsumer(transportId, producerId, rtpCapabilities);
+            callback(params);
+        } catch (err: any) {
+            console.error('Failed to create consumer:', err.message);
+            callback({ error: err.message });
+        }
+      });
+
+      socket.on('resume-consumer', async ({ consumerId }) => {
+        // Call the function from the mediasoupServer file
+        await resumeConsumer({ consumerId });
       });
 
       async function rmTrasport() {

@@ -8,7 +8,9 @@ import { types } from 'mediasoup-client';
 
 let device: types.Device;
 let sendTransport: types.Transport;
-let recvTransport;
+let recvTransport: types.Transport;
+
+const consumers = new Map();
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
@@ -85,15 +87,96 @@ export default function StreamPage() {
       console.log('Client-side producer created:', producer);
     }
 
-    socket.on("new-producer",(producerId: string) => {
+    socket.on("new-producer",({ producerId }: { producerId: string })  => {
       console.log("Hey a new producer join", producerId);
-      
+      consumeProducer(producerId);
     })
 
     socket.on("existing-producers", ({ producerIds }: { producerIds: string[] }) => { 
       console.log("Hey there are some user who already producing", producerIds);
+      for( const producerId of producerIds) {
+        consumeProducer(producerId);
+      }
     });
 
+    async function consumeProducer(producerId: string) {
+      await createRecvTransport();
+  
+      await consume(producerId);
+    }
+
+    async function createRecvTransport() {
+      if (recvTransport) {
+          return;
+      }
+  
+      const params: types.TransportOptions = await new Promise((resolve) => {
+          socket.emit('create-recv-transport', (data: types.TransportOptions) => resolve(data));
+      });
+  
+      recvTransport = device.createRecvTransport(params);
+      console.log("Recv Transport created on client", recvTransport);
+      
+  
+      recvTransport.on('connect', ({ dtlsParameters }, callback, errback) => {
+          socket.emit('connect-recv-transport', { transportId: recvTransport.id, dtlsParameters }, () => {
+              callback();
+          });
+      });
+    }
+
+    type ConsumerParams = {
+      error: any;
+      id: string;
+      producerId: string;
+      kind: 'audio' | 'video';
+      rtpParameters: types.RtpParameters
+    };
+  
+  async function consume(producerId: string) {
+    const { rtpCapabilities } = device;
+
+    const data: ConsumerParams = await new Promise((resolve) => {
+        socket.emit('consume', {
+            producerId,
+            transportId: recvTransport.id,
+            rtpCapabilities,
+        }, (d: ConsumerParams) => resolve(d));
+    });
+
+    if (data.error) {
+      console.error('Failed to create consumer:', data.error);
+      return;
+  }
+
+    console.log("Recived consume from Server", data);
+    
+
+    const { id, kind, rtpParameters } = data;
+
+    const consumer = await recvTransport.consume({
+        id,
+        producerId,
+        kind,
+        rtpParameters,
+    });
+    
+    consumers.set(id, consumer);
+
+    socket.emit('resume-consumer', { consumerId: consumer.id });
+    console.log("Consumer created and resume request sent.");
+
+    
+    const stream = new MediaStream();
+    stream.addTrack(consumer.track);
+
+    const videoElement = document.createElement('video');
+    videoElement.srcObject = stream;
+    videoElement.playsInline = true;
+    videoElement.autoplay = true;
+    document.body.appendChild(videoElement);
+  }
+ 
 
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);

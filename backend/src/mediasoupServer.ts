@@ -6,6 +6,7 @@ let router: mediasoup.types.Router;
 
 export const transports = new Map<string, mediasoup.types.WebRtcTransport>();
 export const producers = new Map<string, mediasoup.types.Producer>();
+export const consumers = new Map();
 
 
 export const startMediasoupWorker = async () => {
@@ -89,6 +90,51 @@ export const createWebRtcTransport = async ({ socketId }: { socketId: string }) 
     console.log(`Producer ${producer.id} created by socket ${socket.id}`);
     
     return producer.id;
+  };
+
+  export const createConsumer = async (
+      transportId: string,
+      producerId: string,
+      rtpCapabilities: mediasoup.types.RtpCapabilities
+  ) => {
+      const transport = transports.get(transportId);
+      if (!transport) {
+          throw new Error(`Transport with id "${transportId}" not found`);
+      }
+
+      if (!router.canConsume({ producerId, rtpCapabilities })) {
+          throw new Error('Router cannot consume this producer');
+      }
+      
+      const consumer = await transport.consume({
+          producerId,
+          rtpCapabilities,
+          paused: true,
+      });
+
+      consumers.set(consumer.id, consumer);
+
+      // When the transport closes, this consumer closes automatically.
+      // We can also listen for producer closure to close it explicitly.
+      // (This part can be added later for more robust cleanup)
+
+      return {
+        id: consumer.id,
+        producerId: consumer.producerId,
+        kind: consumer.kind,
+        rtpParameters: consumer.rtpParameters,
+      };
+  };
+
+  export const resumeConsumer = async ({ consumerId }: { consumerId: string }) => {
+    const consumer = consumers.get(consumerId);
+
+    if (consumer) {
+        console.log(`Resuming consumer ${consumerId}`);
+        await consumer.resume();
+    } else {
+        console.warn(`resumeConsumer: Consumer with id "${consumerId}" not found.`);
+    }
   };
 
   export const closeProducer = async ({ io, producerId }: { io: SocketIOServer; producerId: string; }) => {
