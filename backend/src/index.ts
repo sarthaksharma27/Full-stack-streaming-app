@@ -2,7 +2,8 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, connectWebRtcTransport, 
-  createProducer, producers  } from "./mediasoupServer.js";
+  createProducer, producers,  
+  closeProducer} from "./mediasoupServer.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -39,6 +40,9 @@ async function main() {
         socket.emit('error', 'Router not ready');
       }
 
+      const producerIds = Array.from(producers.keys());
+      socket.emit('existing-producers', { producerIds });
+
       socket.on('createSendTransport', async (callback) => {
         console.log('Browser requested to create a send transport');
         try {
@@ -57,23 +61,21 @@ async function main() {
       });
 
       socket.on('produce', async ({ transportId, kind, rtpParameters }, callback) => {
-        const producerId = await createProducer(transportId, rtpParameters, kind, socket.id);
-        callback(producerId);
+        const producerId = await createProducer(socket, transportId, rtpParameters, kind);
+        callback({ id: producerId });
       });
 
       async function rmProducer() {
-        for (const [id, producer] of producers) {
-          if (producer.appData?.socketId === socket.id) {
-            await producer.close();
-            producers.delete(id);
-            console.log(`Cleaned up producer ${id} for disconnecting socket ${socket.id}`);
+        for (const producer of producers.values()) {
+          if (producer.appData.socketId === socket.id) {
+              closeProducer({ io, producerId: producer.id });
           }
         }
       }
-
+    
       socket.on('disconnect', () => {
         console.log(`user disconnected ${socket.id}`)
-        rmProducer();
+         rmProducer()
       });
   });
 

@@ -1,4 +1,5 @@
 import * as mediasoup from "mediasoup";
+import { Server as SocketIOServer, Socket } from "socket.io";
 
 let worker: mediasoup.types.Worker;
 let router: mediasoup.types.Router;
@@ -65,18 +66,35 @@ export const createWebRtcTransport = async () => {
     await transport.connect({ dtlsParameters });
   };
 
-  export const createProducer = async (transportId: string, rtpParameters: mediasoup.types.RtpParameters,
-     kind: mediasoup.types.MediaKind, socketId: string) => {
+  export const createProducer = async ( socket: Socket, transportId: string,
+    rtpParameters: mediasoup.types.RtpParameters, kind: mediasoup.types.MediaKind ) => {
     const transport = transports.get(transportId);
     if (!transport) throw new Error("Transport not found");
   
-    const producer = await transport.produce({ kind, rtpParameters, appData: { socketId }, });
+    const producer = await transport.produce({ kind, rtpParameters, appData: { socketId: socket.id }, });
     producers.set(producer.id, producer);
+
+    socket.broadcast.to('stream-room').emit('new-producer', { producerId: producer.id });
     
-    console.log(`Producer ${producer.id} created by socket ${socketId}`);
+    console.log(`Producer ${producer.id} created by socket ${socket.id}`);
     
     return producer.id;
   };
+
+  export const closeProducer = async ({ io, producerId }: { io: SocketIOServer; producerId: string; }) => {
+    const producer = producers.get(producerId);
+    if (!producer) {
+        console.warn(`closeProducer: Producer with id "${producerId}" not found.`);
+        return;
+    }
+    await producer.close();
+
+    producers.delete(producerId);
+
+    io.to('stream-room').emit('producer-closed', { producerId });
+
+    console.log(`Producer ${producerId} closed and cleaned up.`);
+};
 
   export const rmProducer = async (myProducerId: string) => {
     if (producers.has(myProducerId)) {
