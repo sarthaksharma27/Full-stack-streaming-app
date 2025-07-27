@@ -22,16 +22,14 @@ const io = new Server(server, {
 });
 
 app.use(cors({
-  origin: 'http://localhost:3000', // Allow requests from your Next.js frontend
+  origin: 'http://localhost:3000', 
 }));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use((req, res, next) => {
-  // Check if the request is for an HLS file
   if (req.path.endsWith('.m3u8') || req.path.endsWith('.ts')) {
-    // Set headers to prevent caching
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -40,7 +38,6 @@ app.use((req, res, next) => {
 });
 
 const publicPath = path.join(__dirname, '..', 'public');
-console.log(`✅ Serving static files from: ${publicPath}`);
 app.use(express.static(publicPath));
 
 
@@ -124,7 +121,6 @@ async function main() {
       });
 
       socket.on('resume-consumer', async ({ consumerId }) => {
-        // Call the function from the mediasoupServer file
         await resumeConsumer({ consumerId });
       });
 

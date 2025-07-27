@@ -155,20 +155,13 @@ export const createWebRtcTransport = async ({ socketId }: { socketId: string }) 
     const transport = transports.get(transportId);
     if (!transport) throw new Error("Transport not found");
 
-    // --- LOGIC TO FIX THE RACE CONDITION ---
-
-    // 1. Check if FFmpeg needs to be started (e.g., on the first video producer).
     if (!ffmpegProcess && kind === 'video') {
         console.log('First video producer created. Starting FFmpeg...');
         startFfmpeg();
 
-        // 2. IMPORTANT: Wait for FFmpeg to initialize.
-        // This simple delay is a pragmatic way to solve the race condition.
         await new Promise(resolve => setTimeout(resolve, 1000));
         console.log('FFmpeg should now be ready.');
     }
-
-    // --- END OF NEW LOGIC ---
 
     const producer = await transport.produce({
         kind,
@@ -179,7 +172,6 @@ export const createWebRtcTransport = async ({ socketId }: { socketId: string }) 
 
     socket.broadcast.to('stream-room').emit('new-producer', { producerId: producer.id });
 
-    // 3. Pipe to FFmpeg *after* it has been started and had time to get ready.
     await pipeProducerToFfmpeg(producer.id);
     
     console.log(`Producer ${producer.id} created by socket ${socket.id}`);
