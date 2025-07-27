@@ -9,6 +9,7 @@ import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, 
   resumeConsumer} from "./mediasoupServer.js";
   import path from 'path';
 import { fileURLToPath } from 'url';
+import cors from 'cors';
 
 const app = express();
 const server = http.createServer(app);
@@ -19,6 +20,10 @@ const io = new Server(server, {
       methods: ['GET', 'POST']
     }
 });
+
+app.use(cors({
+  origin: 'http://localhost:3000', // Allow requests from your Next.js frontend
+}));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
