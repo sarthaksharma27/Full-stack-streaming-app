@@ -1,0 +1,25 @@
+.playerContainer {
+    position: relative; /* This is the key to positioning the badge */
+    width: 100%;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden; /* Ensures the video respects the rounded corners */
+  }
+  
+  .liveBadge {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    padding: 5px 10px;
+    background-color: #ff0000; /* Red for live */
+    color: white;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    z-index: 10; /* Ensures it's on top of the video */
+  }
+  
+  .videoElement {
+    width: 100%;
+    display: block; /* Removes a small gap sometimes seen below video elements */
+  }

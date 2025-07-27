@@ -71,6 +71,7 @@ const options = [
     '-hls_time', '10',
     '-hls_list_size', '5',
     '-hls_flags', 'delete_segments',
+    '-hls_playlist_type', 'event',
     path.join(HLS_OUTPUT_DIR, 'stream.m3u8')
 ];
 
