@@ -7,6 +7,8 @@ import { startMediasoupWorker, getRouterRtpCapabilities, createWebRtcTransport, 
   transports,
   createConsumer,
   resumeConsumer} from "./mediasoupServer.js";
+  import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const server = http.createServer(app);
@@ -17,6 +19,13 @@ const io = new Server(server, {
       methods: ['GET', 'POST']
     }
 });
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const publicPath = path.join(__dirname, '..', 'public');
+console.log(`✅ Serving static files from: ${publicPath}`);
+app.use(express.static(publicPath));
 
 
 app.get('/', (req, res) => {
