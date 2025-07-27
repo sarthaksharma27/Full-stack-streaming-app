@@ -16,6 +16,15 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001"
 
 export default function StreamPage() {
 
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
   useEffect(() => {
     const socket: Socket = io(SOCKET_URL);
 
@@ -81,6 +90,9 @@ export default function StreamPage() {
       console.log('Starting video production...');
       
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      
+      setLocalStream(stream);
+
       const track = stream.getVideoTracks()[0];
       
       const producer = await sendTransport.produce({ track });
@@ -201,6 +213,7 @@ export default function StreamPage() {
     videoElement.srcObject = stream;
     videoElement.playsInline = true;
     videoElement.autoplay = true;
+    videoElement.id = `vid-${producerId}`;
     document.body.appendChild(videoElement);
   }
  
@@ -215,6 +228,26 @@ export default function StreamPage() {
   }, []);
 
   return (
-    <div>This is stream page. Thankyou for visit</div>
+    <div>
+      {/* This video is now in the bottom right corner */}
+      <video
+        ref={localVideoRef}
+        autoPlay
+        muted
+        playsInline
+        style={{
+          position: 'fixed', 
+          bottom: '20px',    
+          right: '20px',     
+          width: '250px',   
+          border: '2px solid black',
+          borderRadius: '8px',
+          backgroundColor: 'black'
+        }}
+      />
+      
+      <div>This is stream page. Thankyou for visit</div>
+    </div>
   );
+
 }

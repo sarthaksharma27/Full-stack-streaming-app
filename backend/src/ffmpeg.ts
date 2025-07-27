@@ -1,4 +1,4 @@
-// In index.ts at the top level
+
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import path from 'path';
@@ -6,7 +6,6 @@ import path from 'path';
 export let ffmpegProcess: any = null;
 const HLS_OUTPUT_DIR = './public/hls';
 
-// In ffmpeg.ts
 const generateSdpFile = () => {
     const sdp = `
 v=0
@@ -34,10 +33,6 @@ export const startFfmpeg = () => {
     
     generateSdpFile();
     
-    // <-- 1. Define the options as a clean array.
-    // In ffmpeg.ts
-
-    // In ffmpeg.ts
 
 const options = [
     // You can keep these for stability
@@ -79,7 +74,6 @@ const options = [
 
     ffmpegProcess = spawn('ffmpeg', options);
 
-    // This listener is important for seeing FFmpeg's own logs/errors
     ffmpegProcess.stderr.on('data', (data: any) => {
         console.error(`FFmpeg stderr: ${data}`);
     });
