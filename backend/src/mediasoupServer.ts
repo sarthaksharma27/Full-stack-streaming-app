@@ -1,12 +1,24 @@
 import * as mediasoup from "mediasoup";
 import { Server as SocketIOServer, Socket } from "socket.io";
+import { ffmpegProcess, startFfmpeg } from "./ffmpeg.js";
 
 let worker: mediasoup.types.Worker;
 let router: mediasoup.types.Router;
 
+let videoPlainTransport: mediasoup.types.PlainTransport;
+let audioPlainTransport: mediasoup.types.PlainTransport;
+
 export const transports = new Map<string, mediasoup.types.WebRtcTransport>();
 export const producers = new Map<string, mediasoup.types.Producer>();
 export const consumers = new Map();
+
+const ffmpegRtpConfig = {
+  ip: '127.0.0.1',
+  videoPort: 5004,
+  videoRtcpPort: 5005,
+  audioPort: 5006,
+  audioRtcpPort: 5007,
+};
 
 
 export const startMediasoupWorker = async () => {
@@ -40,7 +52,64 @@ export const startMediasoupWorker = async () => {
             }
         ]
     });
+
+   videoPlainTransport = await router.createPlainTransport({
+        listenIp: { ip: '127.0.0.1' },
+        rtcpMux: false,
+    });
+    await videoPlainTransport.connect({
+        ip: ffmpegRtpConfig.ip,
+        port: ffmpegRtpConfig.videoPort,
+        rtcpPort: ffmpegRtpConfig.videoRtcpPort
+    });
+    console.log(`Mediasoup PlainTransport for VIDEO connected to RTP port ${ffmpegRtpConfig.videoPort} and RTCP port ${ffmpegRtpConfig.videoRtcpPort}`);
+
+    audioPlainTransport = await router.createPlainTransport({
+        listenIp: { ip: '127.0.0.1' },
+        rtcpMux: false,
+    });
+    await audioPlainTransport.connect({
+        ip: ffmpegRtpConfig.ip,
+        port: ffmpegRtpConfig.audioPort,
+        rtcpPort: ffmpegRtpConfig.audioRtcpPort
+    });
+    console.log(`Mediasoup PlainTransport for AUDIO connected to RTP port ${ffmpegRtpConfig.audioPort} and RTCP port ${ffmpegRtpConfig.audioRtcpPort}`);
 };
+
+export const pipeProducerToFfmpeg = async (producerId: string) => {
+  const producer = producers.get(producerId);
+  if (!producer) {
+      console.warn(`pipeProducerToFfmpeg: Producer with id "${producerId}" not found.`);
+      return;
+  }
+
+  let transport: mediasoup.types.PlainTransport;
+  let rtpPort: number;
+
+  if (producer.kind === 'video') {
+      transport = videoPlainTransport;
+      rtpPort = ffmpegRtpConfig.videoPort;
+  } else if (producer.kind === 'audio') {
+      transport = audioPlainTransport;
+      rtpPort = ffmpegRtpConfig.audioPort;
+  } else {
+      console.warn(`pipeProducerToFfmpeg: Unsupported producer kind "${producer.kind}"`);
+      return;
+  }
+
+  const consumer = await transport.consume({
+      producerId: producer.id,
+      rtpCapabilities: router.rtpCapabilities,
+  });
+
+  console.log(`Piping ${producer.kind} producer ${producerId} to RTP port ${rtpPort}`);
+
+  consumer.on('producerclose', () => {
+      console.log(`Producer ${producerId} closed, closing FFmpeg consumer.`);
+      consumer.close();
+  });
+};
+
 
 export const getRouterRtpCapabilities = () => {
     if (!router) {
@@ -77,20 +146,46 @@ export const createWebRtcTransport = async ({ socketId }: { socketId: string }) 
     await transport.connect({ dtlsParameters });
   };
 
-  export const createProducer = async ( socket: Socket, transportId: string,
-    rtpParameters: mediasoup.types.RtpParameters, kind: mediasoup.types.MediaKind ) => {
+  export const createProducer = async (
+    socket: Socket,
+    transportId: string,
+    rtpParameters: mediasoup.types.RtpParameters,
+    kind: mediasoup.types.MediaKind
+) => {
     const transport = transports.get(transportId);
     if (!transport) throw new Error("Transport not found");
-  
-    const producer = await transport.produce({ kind, rtpParameters, appData: { socketId: socket.id }, });
+
+    // --- LOGIC TO FIX THE RACE CONDITION ---
+
+    // 1. Check if FFmpeg needs to be started (e.g., on the first video producer).
+    if (!ffmpegProcess && kind === 'video') {
+        console.log('First video producer created. Starting FFmpeg...');
+        startFfmpeg();
+
+        // 2. IMPORTANT: Wait for FFmpeg to initialize.
+        // This simple delay is a pragmatic way to solve the race condition.
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log('FFmpeg should now be ready.');
+    }
+
+    // --- END OF NEW LOGIC ---
+
+    const producer = await transport.produce({
+        kind,
+        rtpParameters,
+        appData: { socketId: socket.id },
+    });
     producers.set(producer.id, producer);
 
     socket.broadcast.to('stream-room').emit('new-producer', { producerId: producer.id });
+
+    // 3. Pipe to FFmpeg *after* it has been started and had time to get ready.
+    await pipeProducerToFfmpeg(producer.id);
     
     console.log(`Producer ${producer.id} created by socket ${socket.id}`);
     
     return producer.id;
-  };
+};
 
   export const createConsumer = async (
       transportId: string,
