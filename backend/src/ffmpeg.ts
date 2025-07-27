@@ -6,10 +6,6 @@ import path from 'path';
 export let ffmpegProcess: any = null;
 const HLS_OUTPUT_DIR = './public/hls';
 
-if (!fs.existsSync(HLS_OUTPUT_DIR)) {
-    fs.mkdirSync(HLS_OUTPUT_DIR, { recursive: true });
-}
-
 // In ffmpeg.ts
 const generateSdpFile = () => {
     const sdp = `
@@ -31,6 +27,10 @@ export const startFfmpeg = () => {
         console.log('FFmpeg process is already running.');
         return;
     }
+
+    fs.rmSync(HLS_OUTPUT_DIR, { recursive: true, force: true });
+
+    fs.mkdirSync(HLS_OUTPUT_DIR, { recursive: true });
     
     generateSdpFile();
     
