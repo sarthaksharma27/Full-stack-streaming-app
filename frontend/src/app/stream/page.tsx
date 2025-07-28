@@ -87,18 +87,30 @@ export default function StreamPage() {
 
     
     async function startProducing() {
-      console.log('Starting video production...');
+      console.log('Starting media production...');
       
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       
       setLocalStream(stream);
-
-      const track = stream.getVideoTracks()[0];
+    
+      const videoTrack = stream.getVideoTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0];
       
-      const producer = await sendTransport.produce({ track });
-      
-      console.log('✅ Successfully producing video!');
-      console.log('Client-side producer created:', producer);
+      if (videoTrack) {
+        const videoProducer = await sendTransport.produce({ 
+          track: videoTrack,
+          appData: { mediaType: 'video' } 
+        });
+        console.log('✅ Successfully producing video!', videoProducer.id);
+      }
+    
+      if (audioTrack) {
+        const audioProducer = await sendTransport.produce({ 
+          track: audioTrack,
+          appData: { mediaType: 'audio' }
+        });
+        console.log('✅ Successfully producing audio!', audioProducer.id);
+      }
     }
 
     socket.on("new-producer",({ producerId }: { producerId: string })  => {
@@ -135,6 +147,11 @@ export default function StreamPage() {
     const videoElement = document.getElementById(`vid-${producerId}`);
     if (videoElement) {
         videoElement.parentNode?.removeChild(videoElement);
+    }
+
+    const audioElement = document.getElementById(`aud-${producerId}`);
+    if (audioElement) {
+        audioElement.parentNode?.removeChild(audioElement);
     }
   });
 
@@ -186,7 +203,7 @@ export default function StreamPage() {
     if (data.error) {
       console.error('Failed to create consumer:', data.error);
       return;
-  }
+    }
 
     console.log("Recived consume from Server", data);
     
@@ -209,12 +226,20 @@ export default function StreamPage() {
     const stream = new MediaStream();
     stream.addTrack(consumer.track);
 
-    const videoElement = document.createElement('video');
-    videoElement.srcObject = stream;
-    videoElement.playsInline = true;
-    videoElement.autoplay = true;
-    videoElement.id = `vid-${producerId}`;
-    document.body.appendChild(videoElement);
+    if (kind === 'video') {
+      const videoElement = document.createElement('video');
+      videoElement.srcObject = stream;
+      videoElement.playsInline = true;
+      videoElement.autoplay = true;
+      videoElement.id = `vid-${producerId}`; 
+      document.body.appendChild(videoElement);
+    } else if (kind === 'audio') {
+      const audioElement = document.createElement('audio');
+      audioElement.srcObject = stream;
+      audioElement.autoplay = true;
+      audioElement.id = `aud-${producerId}`; 
+      document.body.appendChild(audioElement);
+    }
   }
  
 
@@ -229,7 +254,6 @@ export default function StreamPage() {
 
   return (
     <div>
-      {/* This video is now in the bottom right corner */}
       <video
         ref={localVideoRef}
         autoPlay
