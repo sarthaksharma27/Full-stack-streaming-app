@@ -7,10 +7,14 @@ let router: mediasoup.types.Router;
 
 let videoPlainTransport: mediasoup.types.PlainTransport;
 let audioPlainTransport: mediasoup.types.PlainTransport;
+let videoPlainTransport2: mediasoup.types.PlainTransport;
+let audioPlainTransport2: mediasoup.types.PlainTransport;
 
 export const transports = new Map<string, mediasoup.types.WebRtcTransport>();
 export const producers = new Map<string, mediasoup.types.Producer>();
 export const consumers = new Map();
+const videoProducersForHls = new Map();
+const ffmpegConsumers = new Map<string, mediasoup.types.Consumer>();
 
 const ffmpegRtpConfig = {
   ip: '127.0.0.1',
@@ -18,6 +22,10 @@ const ffmpegRtpConfig = {
   videoRtcpPort: 5005,
   audioPort: 5006,
   audioRtcpPort: 5007,
+  videoPort2: 5008,
+  videoRtcpPort2: 5009,
+  audioPort2: 5010,
+  audioRtcpPort2: 5011,
 };
 
 
@@ -74,41 +82,134 @@ export const startMediasoupWorker = async () => {
         rtcpPort: ffmpegRtpConfig.audioRtcpPort
     });
     console.log(`Mediasoup PlainTransport for AUDIO connected to RTP port ${ffmpegRtpConfig.audioPort} and RTCP port ${ffmpegRtpConfig.audioRtcpPort}`);
+
+    // for second producer
+
+    videoPlainTransport2 = await router.createPlainTransport({
+        listenIp: { ip: '127.0.0.1' },
+        rtcpMux: false,
+    });
+    await videoPlainTransport2.connect({
+        ip: ffmpegRtpConfig.ip,
+        port: ffmpegRtpConfig.videoPort2,
+        rtcpPort: ffmpegRtpConfig.videoRtcpPort2
+    });
+    console.log(`Mediasoup PlainTransport for VIDEO connected to RTP port ${ffmpegRtpConfig.videoPort2} and RTCP port ${ffmpegRtpConfig.videoRtcpPort2}`);
+
+    audioPlainTransport2 = await router.createPlainTransport({
+        listenIp: { ip: '127.0.0.1' },
+        rtcpMux: false,
+    });
+    await audioPlainTransport2.connect({
+        ip: ffmpegRtpConfig.ip,
+        port: ffmpegRtpConfig.audioPort2,
+        rtcpPort: ffmpegRtpConfig.audioRtcpPort2
+    });
+    console.log(`Mediasoup PlainTransport for AUDIO connected to RTP port ${ffmpegRtpConfig.audioPort2} and RTCP port ${ffmpegRtpConfig.audioRtcpPort2}`);
 };
 
-export const pipeProducerToFfmpeg = async (producerId: string) => {
-  const producer = producers.get(producerId);
-  if (!producer) {
-      console.warn(`pipeProducerToFfmpeg: Producer with id "${producerId}" not found.`);
-      return;
-  }
+// export const pipeProducerToFfmpeg = async (producerId: string) => {
+//   const producer = producers.get(producerId);
+//   if (!producer) {
+//       console.warn(`pipeProducerToFfmpeg: Producer with id "${producerId}" not found.`);
+//       return;
+//   }
 
-  let transport: mediasoup.types.PlainTransport;
-  let rtpPort: number;
+//   let transport: mediasoup.types.PlainTransport;
+//   let rtpPort: number;
 
-  if (producer.kind === 'video') {
-      transport = videoPlainTransport;
-      rtpPort = ffmpegRtpConfig.videoPort;
-  } else if (producer.kind === 'audio') {
-      transport = audioPlainTransport;
-      rtpPort = ffmpegRtpConfig.audioPort;
-  } else {
-      console.warn(`pipeProducerToFfmpeg: Unsupported producer kind "${producer.kind}"`);
-      return;
-  }
+//   if (producer.kind === 'video') {
+//       transport = videoPlainTransport;
+//       rtpPort = ffmpegRtpConfig.videoPort;
+//   } else if (producer.kind === 'audio') {
+//       transport = audioPlainTransport;
+//       rtpPort = ffmpegRtpConfig.audioPort;
+//   } else {
+//       console.warn(`pipeProducerToFfmpeg: Unsupported producer kind "${producer.kind}"`);
+//       return;
+//   }
 
-  const consumer = await transport.consume({
-      producerId: producer.id,
-      rtpCapabilities: router.rtpCapabilities,
-  });
+//   const consumer = await transport.consume({
+//       producerId: producer.id,
+//       rtpCapabilities: router.rtpCapabilities,
+//   });
 
-  console.log(`Piping ${producer.kind} producer ${producerId} to RTP port ${rtpPort}`);
+//   console.log(`Piping ${producer.kind} producer ${producerId} to RTP port ${rtpPort}`);
 
-  consumer.on('producerclose', () => {
-      console.log(`Producer ${producerId} closed, closing FFmpeg consumer.`);
-      consumer.close();
-  });
-};
+//   consumer.on('producerclose', () => {
+//       console.log(`Producer ${producerId} closed, closing FFmpeg consumer.`);
+//       consumer.close();
+//   });
+// };
+
+async function startHlsComposition() {
+    const [producer1, producer2] = Array.from(videoProducersForHls.values());
+
+    if (!producer1 || !producer2) {
+        console.error("Composition started with fewer than two video producers.");
+        return;
+    }
+
+    // const audioProducer1 = Array.from(producers.values()).find(p => p.appData.socketId === producer1.appData.socketId && p.kind === 'audio');
+    // const audioProducer2 = Array.from(producers.values()).find(p => p.appData.socketId === producer2.appData.socketId && p.kind === 'audio');
+
+    // if (!audioProducer1 || !audioProducer2) {
+    //     console.error("Could not find matching audio producers for both video producers.");
+    //     videoProducersForHls.clear();
+    //     return;
+    // }
+
+    // --- Pipe User 1's media to the first set of transports ---
+    const videoConsumer1 = await videoPlainTransport.consume({
+        producerId: producer1.id,
+        rtpCapabilities: router.rtpCapabilities,
+        paused: true // START PAUSED
+    });
+    // const audioConsumer1 = await audioPlainTransport.consume({
+    //     producerId: audioProducer1.id,
+    //     rtpCapabilities: router.rtpCapabilities,
+    // });
+    // Store consumers for later cleanup
+    ffmpegConsumers.set(videoConsumer1.id, videoConsumer1);
+    // ffmpegConsumers.set(audioConsumer1.id, audioConsumer1);
+    // console.log(`Piping User 1 (video: ${producer1.id}, audio: ${audioProducer1.id})`);
+    console.log(`Piping User 1 (video: ${producer1.id}})`);
+
+
+    // --- Pipe User 2's media to the second set of transports ---
+    const videoConsumer2 = await videoPlainTransport2.consume({
+        producerId: producer2.id,
+        rtpCapabilities: router.rtpCapabilities,
+        paused: true // START PAUSED
+    });
+    // const audioConsumer2 = await audioPlainTransport2.consume({
+    //     producerId: audioProducer2.id,
+    //     rtpCapabilities: router.rtpCapabilities,
+    // });
+    ffmpegConsumers.set(videoConsumer2.id, videoConsumer2);
+    // ffmpegConsumers.set(audioConsumer2.id, audioConsumer2);
+    // console.log(`Piping User 2 (video: ${producer2.id}, audio: ${audioProducer2.id})`);
+    console.log(`Piping User 2 (video: ${producer2.id}})`);
+
+    // 3. Prepare the RTP configurations for FFMPEG
+    const rtpConfigs = {
+        producer1: { videoPort: ffmpegRtpConfig.videoPort, audioPort: ffmpegRtpConfig.audioPort },
+        producer2: { videoPort: ffmpegRtpConfig.videoPort2, audioPort: ffmpegRtpConfig.audioPort2 },
+    };
+
+    // 4. Start FFMPEG (make sure your ffmpeg.ts file exports startFfmpeg)
+    startFfmpeg(rtpConfigs);
+
+    // 5. Request keyframes from the video consumers to ensure sync
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await videoConsumer1.requestKeyFrame();
+    await videoConsumer2.requestKeyFrame();
+    console.log("Keyframes requested from both video consumers.");
+
+    await videoConsumer1.resume();
+    await videoConsumer2.resume();
+    console.log("Resumed both video consumers. HLS stream should start cleanly.");
+}
 
 
 export const getRouterRtpCapabilities = () => {
@@ -155,14 +256,6 @@ export const createWebRtcTransport = async ({ socketId }: { socketId: string }) 
     const transport = transports.get(transportId);
     if (!transport) throw new Error("Transport not found");
 
-    if (!ffmpegProcess && kind === 'video') {
-        console.log('First video producer created. Starting FFmpeg...');
-        startFfmpeg();
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('FFmpeg should now be ready.');
-    }
-
     const producer = await transport.produce({
         kind,
         rtpParameters,
@@ -170,9 +263,17 @@ export const createWebRtcTransport = async ({ socketId }: { socketId: string }) 
     });
     producers.set(producer.id, producer);
 
-    socket.broadcast.to('stream-room').emit('new-producer', { producerId: producer.id });
+    if (kind === 'video') {
+        videoProducersForHls.set(producer.id, producer);
 
-    await pipeProducerToFfmpeg(producer.id);
+        if (videoProducersForHls.size === 2) {
+            console.log("Trigger condition met. Starting composition...");
+            startHlsComposition();
+        }
+    }
+
+    
+    socket.broadcast.to('stream-room').emit('new-producer', { producerId: producer.id });
     
     console.log(`Producer ${producer.id} created by socket ${socket.id}`);
     
