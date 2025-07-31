@@ -108,40 +108,6 @@ export const startMediasoupWorker = async () => {
     console.log(`Mediasoup PlainTransport for AUDIO connected to RTP port ${ffmpegRtpConfig.audioPort2} and RTCP port ${ffmpegRtpConfig.audioRtcpPort2}`);
 };
 
-// export const pipeProducerToFfmpeg = async (producerId: string) => {
-//   const producer = producers.get(producerId);
-//   if (!producer) {
-//       console.warn(`pipeProducerToFfmpeg: Producer with id "${producerId}" not found.`);
-//       return;
-//   }
-
-//   let transport: mediasoup.types.PlainTransport;
-//   let rtpPort: number;
-
-//   if (producer.kind === 'video') {
-//       transport = videoPlainTransport;
-//       rtpPort = ffmpegRtpConfig.videoPort;
-//   } else if (producer.kind === 'audio') {
-//       transport = audioPlainTransport;
-//       rtpPort = ffmpegRtpConfig.audioPort;
-//   } else {
-//       console.warn(`pipeProducerToFfmpeg: Unsupported producer kind "${producer.kind}"`);
-//       return;
-//   }
-
-//   const consumer = await transport.consume({
-//       producerId: producer.id,
-//       rtpCapabilities: router.rtpCapabilities,
-//   });
-
-//   console.log(`Piping ${producer.kind} producer ${producerId} to RTP port ${rtpPort}`);
-
-//   consumer.on('producerclose', () => {
-//       console.log(`Producer ${producerId} closed, closing FFmpeg consumer.`);
-//       consumer.close();
-//   });
-// };
-
 async function startHlsComposition() {
     const [producer1, producer2] = Array.from(videoProducersForHls.values());
 
@@ -159,28 +125,25 @@ async function startHlsComposition() {
     //     return;
     // }
 
-    // --- Pipe User 1's media to the first set of transports ---
     const videoConsumer1 = await videoPlainTransport.consume({
         producerId: producer1.id,
         rtpCapabilities: router.rtpCapabilities,
-        paused: true // START PAUSED
+        paused: true 
     });
     // const audioConsumer1 = await audioPlainTransport.consume({
     //     producerId: audioProducer1.id,
     //     rtpCapabilities: router.rtpCapabilities,
     // });
-    // Store consumers for later cleanup
+
     ffmpegConsumers.set(videoConsumer1.id, videoConsumer1);
     // ffmpegConsumers.set(audioConsumer1.id, audioConsumer1);
     // console.log(`Piping User 1 (video: ${producer1.id}, audio: ${audioProducer1.id})`);
     console.log(`Piping User 1 (video: ${producer1.id}})`);
 
-
-    // --- Pipe User 2's media to the second set of transports ---
     const videoConsumer2 = await videoPlainTransport2.consume({
         producerId: producer2.id,
         rtpCapabilities: router.rtpCapabilities,
-        paused: true // START PAUSED
+        paused: true 
     });
     // const audioConsumer2 = await audioPlainTransport2.consume({
     //     producerId: audioProducer2.id,
@@ -191,16 +154,13 @@ async function startHlsComposition() {
     // console.log(`Piping User 2 (video: ${producer2.id}, audio: ${audioProducer2.id})`);
     console.log(`Piping User 2 (video: ${producer2.id}})`);
 
-    // 3. Prepare the RTP configurations for FFMPEG
     const rtpConfigs = {
         producer1: { videoPort: ffmpegRtpConfig.videoPort, audioPort: ffmpegRtpConfig.audioPort },
         producer2: { videoPort: ffmpegRtpConfig.videoPort2, audioPort: ffmpegRtpConfig.audioPort2 },
     };
 
-    // 4. Start FFMPEG (make sure your ffmpeg.ts file exports startFfmpeg)
     startFfmpeg(rtpConfigs);
 
-    // 5. Request keyframes from the video consumers to ensure sync
     await new Promise(resolve => setTimeout(resolve, 1000));
     await videoConsumer1.requestKeyFrame();
     await videoConsumer2.requestKeyFrame();

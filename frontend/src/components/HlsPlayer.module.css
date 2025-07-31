@@ -1,25 +1,32 @@
 .playerContainer {
-    position: relative;
-    width: 100%;
-    background-color: #000;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-  
-  .liveBadge {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    padding: 5px 10px;
-    background-color: #ff0000; 
-    color: white;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: bold;
-    z-index: 10;
-  }
-  
-  .videoElement {
-    width: 100%;
-    display: block; 
-  }
+  position: relative;
+  width: 100%;
+  max-width: 100%; 
+  aspect-ratio: 16 / 9; /* Force standard landscape aspect */
+  background-color: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.videoElement {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Crop if needed to fill space */
+  display: block;
+}
+
+.liveBadge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 5px 10px;
+  background-color: #ff0000;
+  color: white;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 10;
+}

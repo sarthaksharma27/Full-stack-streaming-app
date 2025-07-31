@@ -5,13 +5,12 @@ import path from 'path';
 export let ffmpegProcess: ChildProcessWithoutNullStreams | null = null;
 const HLS_OUTPUT_DIR = './public/hls';
 
-// The audioPort will be passed but ignored by our functions
 interface RtpConfig {
     videoPort: number;
     audioPort: number;
 }
 
-// --- MODIFIED FUNCTION: Generates an SDP file for VIDEO ONLY ---
+// MODIFIED FUNCTION: Generates an SDP file for VIDEO ONLY because on my machine
 const generateSdpFile = (fileName: string, rtpConfig: RtpConfig) => {
     const sdp = `
 v=0
@@ -30,7 +29,7 @@ a=rtpmap:101 VP8/90000
     console.log(`Generated VIDEO-ONLY SDP file: ${fileName}`);
 };
 
-// --- MODIFIED FUNCTION: Builds the composite command for VIDEO ONLY ---
+// --- MODIFIED: Builds the composite command for VIDEO ONLY
 export const startFfmpeg = (rtpConfigs: { producer1: RtpConfig, producer2: RtpConfig }) => {
     if (ffmpegProcess) {
         console.warn('FFmpeg process is already running.');
@@ -46,7 +45,6 @@ export const startFfmpeg = (rtpConfigs: { producer1: RtpConfig, producer2: RtpCo
     // --- REWRITTEN FFMPEG OPTIONS for VIDEO ONLY ---
     const options = [
         '-analyzeduration', '20M',
-        // How much data to look at to find stream info.
         '-probesize', '20M',
         // Inputs
         '-protocol_whitelist', 'file,udp,rtp', '-i', 'ffmpeg1.sdp',
@@ -58,17 +56,14 @@ export const startFfmpeg = (rtpConfigs: { producer1: RtpConfig, producer2: RtpCo
         '[1:v]scale=640:720,setdar=9/16[right];' +
         '[left][right]hstack=inputs=2[v]',
 
-        // Map only the final video stream
         '-map', '[v]',
-
-        // Video encoding options
         '-c:v', 'libx264',
         '-preset', 'veryfast',
         '-tune', 'zerolatency',
         '-r', '24',
         '-g', '48',
 
-        // --- Explicitly disable audio processing ---
+        // Explicitly disable audio processing 
         '-an',
 
         // HLS output settings
